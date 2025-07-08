@@ -1,6 +1,7 @@
 // Update this page (the content is just a fallback if you fail to update the page)
 
 const Index = () => {
+  console.log('Index.tsx: Index component rendering');
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
