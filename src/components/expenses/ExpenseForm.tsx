@@ -26,6 +26,8 @@ const expenseSchema = z.object({
   }),
   expense_date: z.date({ required_error: "La date est requise" }),
   description: z.string().optional(),
+  invoice_reference: z.string().optional(),
+  category: z.string().optional(),
 });
 
 type ExpenseFormData = z.infer<typeof expenseSchema>;
@@ -45,6 +47,8 @@ export function ExpenseForm({ onSuccess }: ExpenseFormProps) {
       amount: "",
       description: "",
       expense_date: new Date(),
+      invoice_reference: "",
+      category: "",
     },
   });
 
@@ -98,6 +102,8 @@ export function ExpenseForm({ onSuccess }: ExpenseFormProps) {
         amount: parseFloat(data.amount),
         expense_date: format(data.expense_date, "yyyy-MM-dd"),
         description: data.description || null,
+        invoice_reference: data.invoice_reference || null,
+        category: data.category || null,
       };
 
       const { error } = await supabase
@@ -264,6 +270,40 @@ export function ExpenseForm({ onSuccess }: ExpenseFormProps) {
                     />
                   </PopoverContent>
                 </Popover>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="invoice_reference"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Référence facture</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="Numéro de facture" 
+                    {...field} 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Catégorie</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="Catégorie de la dépense" 
+                    {...field} 
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

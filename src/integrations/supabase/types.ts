@@ -41,33 +41,39 @@ export type Database = {
       expenses: {
         Row: {
           amount: number
+          category: string | null
           created_at: string
           description: string | null
           expense_date: string
           expense_type_id: string
           id: string
+          invoice_reference: string | null
           project_id: string
           supplier_id: string | null
           updated_at: string
         }
         Insert: {
           amount: number
+          category?: string | null
           created_at?: string
           description?: string | null
           expense_date: string
           expense_type_id: string
           id?: string
+          invoice_reference?: string | null
           project_id: string
           supplier_id?: string | null
           updated_at?: string
         }
         Update: {
           amount?: number
+          category?: string | null
           created_at?: string
           description?: string | null
           expense_date?: string
           expense_type_id?: string
           id?: string
+          invoice_reference?: string | null
           project_id?: string
           supplier_id?: string | null
           updated_at?: string
@@ -98,26 +104,38 @@ export type Database = {
       }
       projects: {
         Row: {
+          budget: number | null
+          client: string | null
           created_at: string
           description: string | null
+          end_date: string | null
           id: string
           name: string
+          start_date: string | null
           status: string | null
           updated_at: string
         }
         Insert: {
+          budget?: number | null
+          client?: string | null
           created_at?: string
           description?: string | null
+          end_date?: string | null
           id?: string
           name: string
+          start_date?: string | null
           status?: string | null
           updated_at?: string
         }
         Update: {
+          budget?: number | null
+          client?: string | null
           created_at?: string
           description?: string | null
+          end_date?: string | null
           id?: string
           name?: string
+          start_date?: string | null
           status?: string | null
           updated_at?: string
         }
