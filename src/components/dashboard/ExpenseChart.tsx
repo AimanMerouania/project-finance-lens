@@ -14,19 +14,16 @@ export function ExpenseChart() {
   const { data: chartData, isLoading } = useQuery({
     queryKey: ["expense-chart"],
     queryFn: async () => {
+      // Only fetch necessary data - removed projects join as it's not used
       const { data, error } = await supabase
         .from("expenses")
-        .select(`
-          amount,
-          expense_date,
-          projects(name)
-        `)
+        .select("amount, expense_date")
         .order("expense_date");
 
       if (error) throw error;
 
-      // Group by month
-      const monthlyData = data.reduce((acc: any, expense) => {
+      // Group by month with optimized processing
+      const monthlyData = data.reduce((acc: Record<string, { month: string; amount: number }>, expense) => {
         const date = new Date(expense.expense_date);
         const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         
@@ -37,13 +34,14 @@ export function ExpenseChart() {
           };
         }
         
-        acc[monthKey].amount += parseFloat(expense.amount.toString());
+        acc[monthKey].amount += Number(expense.amount);
         
         return acc;
       }, {});
 
-      return Object.values(monthlyData).sort((a: any, b: any) => a.month.localeCompare(b.month));
+      return Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month));
     },
+    staleTime: 10 * 60 * 1000, // 10 minutes - charts don't need frequent updates
   });
 
   if (isLoading) {

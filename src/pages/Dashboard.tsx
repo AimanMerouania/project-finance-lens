@@ -1,8 +1,12 @@
+import { lazy } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExpenseChart } from "@/components/dashboard/ExpenseChart";
 import { ProjectStats } from "@/components/dashboard/ProjectStats";
-import { RecentExpenses } from "@/components/dashboard/RecentExpenses";
-import { ExpensesByType } from "@/components/dashboard/ExpensesByType";
+import { LazyWrapper } from "@/components/common/LazyWrapper";
+
+// Lazy load heavy chart components
+const ExpenseChart = lazy(() => import("@/components/dashboard/ExpenseChart").then(m => ({ default: m.ExpenseChart })));
+const ExpensesByType = lazy(() => import("@/components/dashboard/ExpensesByType").then(m => ({ default: m.ExpensesByType })));
+const RecentExpenses = lazy(() => import("@/components/dashboard/RecentExpenses").then(m => ({ default: m.RecentExpenses })));
 
 const Dashboard = () => {
   return (
@@ -27,7 +31,9 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ExpenseChart />
+            <LazyWrapper>
+              <ExpenseChart />
+            </LazyWrapper>
           </CardContent>
         </Card>
 
@@ -39,7 +45,9 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ExpensesByType />
+            <LazyWrapper>
+              <ExpensesByType />
+            </LazyWrapper>
           </CardContent>
         </Card>
 
@@ -51,7 +59,9 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentExpenses />
+            <LazyWrapper>
+              <RecentExpenses />
+            </LazyWrapper>
           </CardContent>
         </Card>
       </div>

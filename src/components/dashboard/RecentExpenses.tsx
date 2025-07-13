@@ -9,21 +9,14 @@ export function RecentExpenses() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("expenses")
-        .select(`
-          id,
-          amount,
-          expense_date,
-          description,
-          projects(name),
-          expense_types(name),
-          suppliers(name)
-        `)
+        .select("id, amount, expense_date, projects(name), expense_types(name)")
         .order("created_at", { ascending: false })
         .limit(5);
 
       if (error) throw error;
       return data;
     },
+    staleTime: 2 * 60 * 1000, // 2 minutes - recent data should be fresher
   });
 
   if (isLoading) {

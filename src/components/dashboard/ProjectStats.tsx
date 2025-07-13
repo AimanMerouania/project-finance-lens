@@ -7,14 +7,15 @@ export function ProjectStats() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
+      // Optimized parallel queries with only needed data
       const [projectsResult, expensesResult, totalAmountResult] = await Promise.all([
-        supabase.from("projects").select("id", { count: "exact" }),
-        supabase.from("expenses").select("id", { count: "exact" }),
+        supabase.from("projects").select("*", { count: "exact", head: true }),
+        supabase.from("expenses").select("*", { count: "exact", head: true }),
         supabase.from("expenses").select("amount"),
       ]);
 
       const totalAmount = totalAmountResult.data?.reduce(
-        (sum, expense) => sum + parseFloat(expense.amount.toString()),
+        (sum, expense) => sum + Number(expense.amount),
         0
       ) || 0;
 
@@ -29,6 +30,7 @@ export function ProjectStats() {
         avgExpensePerProject,
       };
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes for stats
   });
 
   const statCards = [

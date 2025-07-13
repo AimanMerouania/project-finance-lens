@@ -23,15 +23,12 @@ export function ExpensesByType() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("expenses")
-        .select(`
-          amount,
-          expense_types(name)
-        `);
+        .select("amount, expense_types(name)");
 
       if (error) throw error;
 
-      // Group by expense type
-      const typeData = data.reduce((acc: any, expense) => {
+      // Group by expense type with optimized processing
+      const typeData = data.reduce((acc: Record<string, { name: string; amount: number }>, expense) => {
         const typeName = expense.expense_types?.name || "Non défini";
         
         if (!acc[typeName]) {
@@ -41,13 +38,14 @@ export function ExpensesByType() {
           };
         }
         
-        acc[typeName].amount += parseFloat(expense.amount.toString());
+        acc[typeName].amount += Number(expense.amount);
         
         return acc;
       }, {});
 
       return Object.values(typeData);
     },
+    staleTime: 10 * 60 * 1000, // 10 minutes for pie chart data
   });
 
   if (isLoading) {

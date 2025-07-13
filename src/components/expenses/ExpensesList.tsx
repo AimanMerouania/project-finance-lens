@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useDebounce } from "@/hooks/useDebounce";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,23 +31,22 @@ export function ExpensesList() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Debounce search term for better performance
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
   const { data: expenses, isLoading } = useQuery({
     queryKey: ["expenses"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("expenses")
-        .select(`
-          *,
-          projects(id, name),
-          expense_types(id, name),
-          suppliers(id, name)
-        `)
+        .select("*, projects(id, name), expense_types(id, name), suppliers(id, name)")
         .order("expense_date", { ascending: false });
 
       if (error) throw error;
       return data;
     },
+    staleTime: 3 * 60 * 1000, // 3 minutes
   });
 
   const { data: projects } = useQuery({
@@ -60,6 +60,7 @@ export function ExpensesList() {
       if (error) throw error;
       return data;
     },
+    staleTime: 10 * 60 * 1000, // 10 minutes - projects don't change often
   });
 
   const { data: expenseTypes } = useQuery({
@@ -73,6 +74,7 @@ export function ExpensesList() {
       if (error) throw error;
       return data;
     },
+    staleTime: 15 * 60 * 1000, // 15 minutes - types rarely change
   });
 
   const deleteExpense = async (id: string) => {
@@ -103,17 +105,22 @@ export function ExpensesList() {
     }
   };
 
-  const filteredExpenses = expenses?.filter((expense) => {
-    const matchesSearch = !searchTerm || 
-      expense.projects?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expense.suppliers?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      expense.description?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Memoize filtered expenses for better performance
+  const filteredExpenses = useMemo(() => {
+    if (!expenses) return [];
     
-    const matchesProject = selectedProject === "all" || expense.project_id === selectedProject;
-    const matchesType = selectedType === "all" || expense.expense_type_id === selectedType;
-    
-    return matchesSearch && matchesProject && matchesType;
-  });
+    return expenses.filter((expense) => {
+      const matchesSearch = !debouncedSearchTerm || 
+        expense.projects?.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        expense.suppliers?.name?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        expense.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
+      
+      const matchesProject = selectedProject === "all" || expense.project_id === selectedProject;
+      const matchesType = selectedType === "all" || expense.expense_type_id === selectedType;
+      
+      return matchesSearch && matchesProject && matchesType;
+    });
+  }, [expenses, debouncedSearchTerm, selectedProject, selectedType]);
 
   if (isLoading) {
     return (
