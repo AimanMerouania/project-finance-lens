@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ProjectsList } from "@/components/projects/ProjectsList";
 import { ProjectForm } from "@/components/projects/ProjectForm";
+import { ExportButton } from "@/components/common/ExportButton";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import {
@@ -16,7 +17,7 @@ const Projects = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Projets</h1>
@@ -25,23 +26,27 @@ const Projects = () => {
           </p>
         </div>
         
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nouveau projet
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Créer un nouveau projet</DialogTitle>
-              <DialogDescription>
-                Ajoutez les informations de base du projet.
-              </DialogDescription>
-            </DialogHeader>
-            <ProjectForm onSuccess={() => setIsDialogOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <ExportButton type="projects" />
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="transition-all duration-200 hover:scale-105">
+                <Plus className="mr-2 h-4 w-4" />
+                Nouveau projet
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Créer un nouveau projet</DialogTitle>
+                <DialogDescription>
+                  Ajoutez un nouveau projet à votre portefeuille.
+                </DialogDescription>
+              </DialogHeader>
+              <ProjectForm onSuccess={() => setIsDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <ProjectsList />

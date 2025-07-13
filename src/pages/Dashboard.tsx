@@ -10,7 +10,7 @@ const RecentExpenses = lazy(() => import("@/components/dashboard/RecentExpenses"
 
 const Dashboard = () => {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Tableau de bord</h1>
@@ -20,7 +20,9 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <ProjectStats />
+      <div className="animate-scale-in">
+        <ProjectStats />
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="md:col-span-2">
