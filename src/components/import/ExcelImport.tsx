@@ -12,11 +12,9 @@ import { useQueryClient } from "@tanstack/react-query";
 
 interface ImportData {
   projectName: string;
-  date: string;
-  supplier: string;
-  expenseType: string;
+  designation: string;
+  month: string;
   amount: number;
-  description?: string;
 }
 
 export function ExcelImport() {
@@ -48,15 +46,27 @@ export function ExcelImport() {
 
       setProgress(25);
 
-      // Mapper les données du fichier Excel
-      const mappedData: ImportData[] = jsonData.map((row: any) => ({
-        projectName: row["Nom du projet"] || row["Project Name"] || row["Projet"] || "",
-        date: row["Date"] || "",
-        supplier: row["Fournisseur"] || row["Supplier"] || "",
-        expenseType: row["Type de dépense"] || row["Type"] || "",
-        amount: parseFloat(row["Montant"] || row["Amount"] || "0"),
-        description: row["Description"] || "",
-      }));
+      // Transformer les données du format pivot vers un format linéaire
+      const mappedData: ImportData[] = [];
+      const monthColumns = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+      
+      jsonData.forEach((row: any) => {
+        const projectName = row["Projet"] || "";
+        const designation = row["Desgnation"] || row["Designation"] || "";
+        
+        // Pour chaque mois, créer une entrée si il y a un montant
+        monthColumns.forEach((month) => {
+          const amount = parseFloat(row[month] || "0");
+          if (amount > 0) {
+            mappedData.push({
+              projectName,
+              designation,
+              month,
+              amount
+            });
+          }
+        });
+      });
 
       setProgress(50);
 
@@ -104,14 +114,30 @@ export function ExcelImport() {
       .from("expense_types")
       .select("id, name");
 
+    // Créer les mappings pour les mois
+    const monthToNumber: { [key: string]: string } = {
+      "Janvier": "01",
+      "Février": "02", 
+      "Mars": "03",
+      "Avril": "04",
+      "Mai": "05",
+      "Juin": "06",
+      "Juillet": "07",
+      "Août": "08",
+      "Septembre": "09",
+      "Octobre": "10",
+      "Novembre": "11",
+      "Décembre": "12"
+    };
+
     for (let i = 0; i < data.length; i++) {
       const item = data[i];
       
       try {
         // Validation des données
-        if (!item.projectName || !item.date || !item.expenseType || !item.amount) {
+        if (!item.projectName || !item.designation || !item.month || !item.amount) {
           results.errors++;
-          results.details.errors.push(`Ligne ${i + 2}: Données manquantes`);
+          results.details.errors.push(`Ligne ${i + 1}: Données manquantes`);
           continue;
         }
 
@@ -132,49 +158,39 @@ export function ExcelImport() {
           existingProjects?.push(project);
         }
 
-        // Trouver le type de dépense
-        const expenseType = expenseTypes?.find(t => 
-          t.name.toLowerCase() === item.expenseType.toLowerCase()
+        // Trouver ou créer le type de dépense
+        let expenseType = expenseTypes?.find(t => 
+          t.name.toLowerCase() === item.designation.toLowerCase()
         );
 
         if (!expenseType) {
-          results.errors++;
-          results.details.errors.push(`Ligne ${i + 2}: Type de dépense "${item.expenseType}" non trouvé`);
-          continue;
-        }
-
-        // Trouver ou créer le fournisseur si fourni
-        let supplierId = null;
-        if (item.supplier && item.supplier.trim()) {
-          const { data: existingSupplier } = await supabase
-            .from("suppliers")
-            .select("id")
-            .ilike("name", item.supplier)
+          // Créer le type de dépense s'il n'existe pas
+          const { data: newExpenseType, error: expenseTypeError } = await supabase
+            .from("expense_types")
+            .insert([{ 
+              name: item.designation,
+              code: item.designation.toUpperCase().replace(/\s+/g, '_')
+            }])
+            .select("id, name")
             .single();
 
-          if (existingSupplier) {
-            supplierId = existingSupplier.id;
-          } else {
-            const { data: newSupplier, error: supplierError } = await supabase
-              .from("suppliers")
-              .insert([{ name: item.supplier }])
-              .select("id")
-              .single();
-
-            if (!supplierError && newSupplier) {
-              supplierId = newSupplier.id;
-            }
-          }
+          if (expenseTypeError) throw expenseTypeError;
+          expenseType = newExpenseType;
+          expenseTypes?.push(expenseType);
         }
+
+        // Générer une date (1er du mois de l'année courante)
+        const currentYear = new Date().getFullYear();
+        const monthNumber = monthToNumber[item.month];
+        const expenseDate = `${currentYear}-${monthNumber}-01`;
 
         // Créer la dépense
         const expenseData = {
           project_id: project.id,
           expense_type_id: expenseType.id,
-          supplier_id: supplierId,
           amount: item.amount,
-          expense_date: new Date(item.date).toISOString().split('T')[0],
-          description: item.description || null,
+          expense_date: expenseDate,
+          description: `Import ${item.month} ${currentYear}`,
         };
 
         const { error: expenseError } = await supabase
@@ -188,7 +204,7 @@ export function ExcelImport() {
 
       } catch (error) {
         results.errors++;
-        results.details.errors.push(`Ligne ${i + 2}: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
+        results.details.errors.push(`Ligne ${i + 1}: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
       }
 
       // Mettre à jour le progrès
@@ -222,17 +238,29 @@ export function ExcelImport() {
             Format du fichier Excel
           </CardTitle>
           <CardDescription>
-            Votre fichier Excel doit contenir les colonnes suivantes :
+            Votre fichier Excel doit avoir ce format avec les projets en lignes et les mois en colonnes :
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <Badge variant="outline">Nom du projet</Badge>
-            <Badge variant="outline">Date</Badge>
-            <Badge variant="outline">Fournisseur</Badge>
-            <Badge variant="outline">Type de dépense</Badge>
-            <Badge variant="outline">Montant</Badge>
-            <Badge variant="outline">Description (optionnel)</Badge>
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-medium mb-2">Structure attendue :</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                <Badge variant="outline">Projet</Badge>
+                <Badge variant="outline">Desgnation</Badge>
+                <Badge variant="outline">Janvier</Badge>
+                <Badge variant="outline">Février</Badge>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                ... Mars, Avril, Mai, Juin, Juillet, Août, Septembre, Octobre, Novembre, Décembre
+              </div>
+            </div>
+            <div className="p-4 bg-muted/50 rounded-lg">
+              <p className="text-sm">
+                <strong>Exemple :</strong> Chaque ligne représente un projet avec sa désignation (FOURNISSEUR, NDF, etc.) 
+                et les montants pour chaque mois. Les cellules vides ou avec 0 seront ignorées.
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -276,7 +304,7 @@ export function ExcelImport() {
               <div className="text-center">
                 <div className="text-lg font-medium">Import en cours...</div>
                 <div className="text-sm text-muted-foreground">
-                  Traitement des données Excel
+                  Transformation et traitement des données Excel
                 </div>
               </div>
               <Progress value={progress} className="w-full" />
