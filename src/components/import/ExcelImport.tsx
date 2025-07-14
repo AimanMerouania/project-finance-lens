@@ -52,27 +52,109 @@ export function ExcelImport() {
 
       // Transformer les données du format pivot vers un format linéaire
       const mappedData: ImportData[] = [];
-      const monthColumns = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+      const expenseTypes = ['FOURNISSEUR', 'NDF', 'SOUS TRAITANT', 'ACHAT NDF', 'PRODUCTION INTERNE'];
       
-      jsonData.forEach((row: any, index) => {
-        console.log(`Traitement ligne ${index + 1}:`, row);
-        const projectName = row["Projet"] || "";
-        const designation = row["Desgnation"] || row["Designation"] || "";
-        
-        // Pour chaque mois, créer une entrée si il y a un montant
-        monthColumns.forEach((month) => {
-          const amount = parseFloat(row[month] || "0");
-          if (amount > 0) {
-            mappedData.push({
-              projectName,
-              designation,
-              month,
-              amount
+      // Find header row with months
+      let headerRowIndex = -1;
+      let monthColumns: { key: string; month: string }[] = [];
+      
+      for (let i = 0; i < Math.min(10, jsonData.length); i++) {
+        const row = jsonData[i];
+        if (row && typeof row === 'object') {
+          const values = Object.values(row).filter(val => val && typeof val === 'string');
+          const months = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin'];
+          
+          if (values.some(val => months.some(month => val.toString().toLowerCase().includes(month)))) {
+            headerRowIndex = i;
+            
+            // Extract month columns
+            Object.entries(row).forEach(([key, value]) => {
+              if (value && typeof value === 'string') {
+                const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+                const foundMonth = monthNames.find(month => value.toLowerCase().includes(month.toLowerCase()));
+                if (foundMonth) {
+                  monthColumns.push({ key, month: foundMonth });
+                }
+              }
             });
-            console.log(`Ajouté: ${projectName} - ${designation} - ${month}: ${amount}`);
+            break;
           }
-        });
-      });
+        }
+      }
+
+      if (headerRowIndex === -1 || monthColumns.length === 0) {
+        console.log("Aucun en-tête de mois trouvé, essai avec structure basique");
+        // Fallback to basic month column names
+        monthColumns = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
+          .map(month => ({ key: month, month }));
+      }
+
+      console.log("Colonnes des mois trouvées:", monthColumns);
+      
+      // Process data starting after header
+      let currentProject: string | null = null;
+      const startIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 0;
+      
+      for (let i = startIndex; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        console.log(`Traitement ligne ${i + 1}:`, row);
+        
+        if (!row || typeof row !== 'object') continue;
+        
+        // Get first two column values (project and designation)
+        const columns = Object.keys(row);
+        if (columns.length < 2) continue;
+        
+        const firstColumnValue = row[columns[0]];
+        const secondColumnValue = row[columns[1]];
+        
+        console.log(`Première colonne: "${firstColumnValue}", Deuxième colonne: "${secondColumnValue}"`);
+        
+        // Check if this is a project line (first column has value, not an expense type)
+        if (firstColumnValue && 
+            typeof firstColumnValue === 'string' && 
+            firstColumnValue.trim() !== '' &&
+            !expenseTypes.includes(firstColumnValue.trim())) {
+          
+          currentProject = firstColumnValue.trim();
+          console.log("Nouveau projet détecté:", currentProject);
+          
+          // If the second column also has an expense type, process this line
+          if (secondColumnValue && expenseTypes.includes(secondColumnValue)) {
+            const designation = secondColumnValue;
+            
+            monthColumns.forEach(({ key, month }) => {
+              const amount = parseFloat(row[key] || "0");
+              if (amount > 0) {
+                mappedData.push({
+                  projectName: currentProject!,
+                  designation,
+                  month,
+                  amount
+                });
+                console.log(`Ajouté: ${currentProject} - ${designation} - ${month}: ${amount}`);
+              }
+            });
+          }
+        }
+        // Check if this is an expense type line (second column contains expense type)
+        else if (currentProject && secondColumnValue && expenseTypes.includes(secondColumnValue)) {
+          const designation = secondColumnValue;
+          
+          monthColumns.forEach(({ key, month }) => {
+            const amount = parseFloat(row[key] || "0");
+            if (amount > 0) {
+              mappedData.push({
+                projectName: currentProject!,
+                designation,
+                month,
+                amount
+              });
+              console.log(`Ajouté: ${currentProject} - ${designation} - ${month}: ${amount}`);
+            }
+          });
+        }
+      }
 
       console.log("Données transformées:", mappedData);
       setProgress(50);
