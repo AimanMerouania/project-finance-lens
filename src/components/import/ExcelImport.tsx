@@ -33,24 +33,29 @@ export function ExcelImport() {
     const file = acceptedFiles[0];
     if (!file) return;
 
+    console.log("Début de l'import du fichier:", file.name);
     setIsProcessing(true);
     setProgress(0);
     setImportResults(null);
 
     try {
+      // Lire le fichier Excel
+      console.log("Lecture du fichier Excel...");
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
+      console.log("Données brutes du fichier Excel:", jsonData);
       setProgress(25);
 
       // Transformer les données du format pivot vers un format linéaire
       const mappedData: ImportData[] = [];
       const monthColumns = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
       
-      jsonData.forEach((row: any) => {
+      jsonData.forEach((row: any, index) => {
+        console.log(`Traitement ligne ${index + 1}:`, row);
         const projectName = row["Projet"] || "";
         const designation = row["Desgnation"] || row["Designation"] || "";
         
@@ -64,13 +69,25 @@ export function ExcelImport() {
               month,
               amount
             });
+            console.log(`Ajouté: ${projectName} - ${designation} - ${month}: ${amount}`);
           }
         });
       });
 
+      console.log("Données transformées:", mappedData);
       setProgress(50);
 
+      if (mappedData.length === 0) {
+        toast({
+          title: "Aucune donnée trouvée",
+          description: "Aucun montant valide trouvé dans le fichier Excel. Vérifiez le format.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Traiter l'import
+      console.log("Début du processus d'import vers Supabase...");
       const results = await processImport(mappedData);
       setImportResults(results);
       setProgress(100);
@@ -84,12 +101,19 @@ export function ExcelImport() {
         queryClient.invalidateQueries({ queryKey: ["expenses"] });
         queryClient.invalidateQueries({ queryKey: ["projects"] });
         queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      } else if (results.errors > 0) {
+        toast({
+          title: "Erreurs lors de l'import",
+          description: `${results.errors} erreurs détectées. Consultez les détails.`,
+          variant: "destructive",
+        });
       }
 
     } catch (error) {
+      console.error("Erreur lors de l'import:", error);
       toast({
         title: "Erreur d'import",
-        description: "Impossible de lire le fichier Excel.",
+        description: error instanceof Error ? error.message : "Impossible de lire le fichier Excel.",
         variant: "destructive",
       });
     } finally {
@@ -98,6 +122,7 @@ export function ExcelImport() {
   }, [toast, queryClient]);
 
   const processImport = async (data: ImportData[]) => {
+    console.log("Début processImport avec", data.length, "éléments");
     const results = {
       success: 0,
       errors: 0,
@@ -105,110 +130,140 @@ export function ExcelImport() {
       details: { success: [] as ImportData[], errors: [] as string[] },
     };
 
-    // Récupérer les projets et types de dépenses existants
-    const { data: existingProjects } = await supabase
-      .from("projects")
-      .select("id, name");
-    
-    const { data: expenseTypes } = await supabase
-      .from("expense_types")
-      .select("id, name");
-
-    // Créer les mappings pour les mois
-    const monthToNumber: { [key: string]: string } = {
-      "Janvier": "01",
-      "Février": "02", 
-      "Mars": "03",
-      "Avril": "04",
-      "Mai": "05",
-      "Juin": "06",
-      "Juillet": "07",
-      "Août": "08",
-      "Septembre": "09",
-      "Octobre": "10",
-      "Novembre": "11",
-      "Décembre": "12"
-    };
-
-    for (let i = 0; i < data.length; i++) {
-      const item = data[i];
+    try {
+      // Récupérer les projets et types de dépenses existants
+      console.log("Récupération des projets existants...");
+      const { data: existingProjects, error: projectsError } = await supabase
+        .from("projects")
+        .select("id, name");
       
-      try {
-        // Validation des données
-        if (!item.projectName || !item.designation || !item.month || !item.amount) {
+      if (projectsError) {
+        console.error("Erreur lors de la récupération des projets:", projectsError);
+        throw projectsError;
+      }
+      console.log("Projets existants:", existingProjects);
+      
+      console.log("Récupération des types de dépenses...");
+      const { data: expenseTypes, error: expenseTypesError } = await supabase
+        .from("expense_types")
+        .select("id, name");
+
+      if (expenseTypesError) {
+        console.error("Erreur lors de la récupération des types de dépenses:", expenseTypesError);
+        throw expenseTypesError;
+      }
+      console.log("Types de dépenses existants:", expenseTypes);
+
+      // Créer les mappings pour les mois
+      const monthToNumber: { [key: string]: string } = {
+        "Janvier": "01",
+        "Février": "02", 
+        "Mars": "03",
+        "Avril": "04",
+        "Mai": "05",
+        "Juin": "06",
+        "Juillet": "07",
+        "Août": "08",
+        "Septembre": "09",
+        "Octobre": "10",
+        "Novembre": "11",
+        "Décembre": "12"
+      };
+
+      for (let i = 0; i < data.length; i++) {
+        const item = data[i];
+        console.log(`Traitement item ${i + 1}/${data.length}:`, item);
+        
+        try {
+          // Validation des données
+          if (!item.projectName || !item.designation || !item.month || !item.amount) {
+            results.errors++;
+            results.details.errors.push(`Ligne ${i + 1}: Données manquantes`);
+            console.log(`Erreur - données manquantes pour item ${i + 1}`);
+            continue;
+          }
+
+          // Trouver ou créer le projet
+          let project = existingProjects?.find(p => 
+            p.name.toLowerCase() === item.projectName.toLowerCase()
+          );
+
+          if (!project) {
+            console.log(`Création du projet: ${item.projectName}`);
+            const { data: newProject, error: projectError } = await supabase
+              .from("projects")
+              .insert([{ name: item.projectName }])
+              .select("id, name")
+              .single();
+
+            if (projectError) throw projectError;
+            project = newProject;
+            existingProjects?.push(project);
+            console.log("Projet créé:", project);
+          }
+
+          // Trouver ou créer le type de dépense
+          let expenseType = expenseTypes?.find(t => 
+            t.name.toLowerCase() === item.designation.toLowerCase()
+          );
+
+          if (!expenseType) {
+            console.log(`Création du type de dépense: ${item.designation}`);
+            // Créer le type de dépense s'il n'existe pas
+            const { data: newExpenseType, error: expenseTypeError } = await supabase
+              .from("expense_types")
+              .insert([{ 
+                name: item.designation,
+                code: item.designation.toUpperCase().replace(/\s+/g, '_')
+              }])
+              .select("id, name")
+              .single();
+
+            if (expenseTypeError) throw expenseTypeError;
+            expenseType = newExpenseType;
+            expenseTypes?.push(expenseType);
+            console.log("Type de dépense créé:", expenseType);
+          }
+
+          // Générer une date (1er du mois de l'année courante)
+          const currentYear = new Date().getFullYear();
+          const monthNumber = monthToNumber[item.month];
+          const expenseDate = `${currentYear}-${monthNumber}-01`;
+
+          // Créer la dépense
+          const expenseData = {
+            project_id: project.id,
+            expense_type_id: expenseType.id,
+            amount: item.amount,
+            expense_date: expenseDate,
+            description: `Import ${item.month} ${currentYear}`,
+          };
+
+          console.log("Création de la dépense:", expenseData);
+          const { error: expenseError } = await supabase
+            .from("expenses")
+            .insert([expenseData]);
+
+          if (expenseError) throw expenseError;
+
+          results.success++;
+          results.details.success.push(item);
+          console.log(`Succès pour item ${i + 1}`);
+
+        } catch (error) {
+          console.error(`Erreur pour item ${i + 1}:`, error);
           results.errors++;
-          results.details.errors.push(`Ligne ${i + 1}: Données manquantes`);
-          continue;
+          results.details.errors.push(`Ligne ${i + 1}: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
         }
 
-        // Trouver ou créer le projet
-        let project = existingProjects?.find(p => 
-          p.name.toLowerCase() === item.projectName.toLowerCase()
-        );
-
-        if (!project) {
-          const { data: newProject, error: projectError } = await supabase
-            .from("projects")
-            .insert([{ name: item.projectName }])
-            .select("id, name")
-            .single();
-
-          if (projectError) throw projectError;
-          project = newProject;
-          existingProjects?.push(project);
-        }
-
-        // Trouver ou créer le type de dépense
-        let expenseType = expenseTypes?.find(t => 
-          t.name.toLowerCase() === item.designation.toLowerCase()
-        );
-
-        if (!expenseType) {
-          // Créer le type de dépense s'il n'existe pas
-          const { data: newExpenseType, error: expenseTypeError } = await supabase
-            .from("expense_types")
-            .insert([{ 
-              name: item.designation,
-              code: item.designation.toUpperCase().replace(/\s+/g, '_')
-            }])
-            .select("id, name")
-            .single();
-
-          if (expenseTypeError) throw expenseTypeError;
-          expenseType = newExpenseType;
-          expenseTypes?.push(expenseType);
-        }
-
-        // Générer une date (1er du mois de l'année courante)
-        const currentYear = new Date().getFullYear();
-        const monthNumber = monthToNumber[item.month];
-        const expenseDate = `${currentYear}-${monthNumber}-01`;
-
-        // Créer la dépense
-        const expenseData = {
-          project_id: project.id,
-          expense_type_id: expenseType.id,
-          amount: item.amount,
-          expense_date: expenseDate,
-          description: `Import ${item.month} ${currentYear}`,
-        };
-
-        const { error: expenseError } = await supabase
-          .from("expenses")
-          .insert([expenseData]);
-
-        if (expenseError) throw expenseError;
-
-        results.success++;
-        results.details.success.push(item);
-
-      } catch (error) {
-        results.errors++;
-        results.details.errors.push(`Ligne ${i + 1}: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
+        // Mettre à jour le progrès
+        setProgress(50 + ((i + 1) / data.length) * 50);
       }
 
-      // Mettre à jour le progrès
-      setProgress(50 + ((i + 1) / data.length) * 50);
+    } catch (error) {
+      console.error("Erreur globale dans processImport:", error);
+      results.errors = data.length;
+      results.details.errors.push(`Erreur générale: ${error instanceof Error ? error.message : "Erreur inconnue"}`);
     }
 
     return results;
