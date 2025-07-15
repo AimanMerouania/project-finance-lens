@@ -42,7 +42,7 @@ export function ProjectStats() {
     },
     {
       title: "Total dépenses",
-      value: `${(stats?.totalAmount || 0).toLocaleString("fr-FR")} €`,
+      value: `${(stats?.totalAmount || 0).toLocaleString("fr-FR")} MAD`,
       icon: Euro,
       description: "montant total",
     },
@@ -54,7 +54,7 @@ export function ProjectStats() {
     },
     {
       title: "Moyenne par projet",
-      value: `${(stats?.avgExpensePerProject || 0).toLocaleString("fr-FR")} €`,
+      value: `${(stats?.avgExpensePerProject || 0).toLocaleString("fr-FR")} MAD`,
       icon: TrendingUp,
       description: "coût moyen",
     },

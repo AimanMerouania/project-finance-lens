@@ -124,15 +124,19 @@ export function ExcelImport() {
             const designation = secondColumnValue;
             
             monthColumns.forEach(({ key, month }) => {
-              const amount = parseFloat(row[key] || "0");
-              if (amount > 0) {
-                mappedData.push({
-                  projectName: currentProject!,
-                  designation,
-                  month,
-                  amount
-                });
-                console.log(`Ajouté: ${currentProject} - ${designation} - ${month}: ${amount}`);
+              const cellValue = row[key];
+              if (cellValue !== undefined && cellValue !== null && cellValue !== "" && cellValue !== 0) {
+                // Convertir en nombre avec précision maximale
+                const amount = Number(cellValue);
+                if (!isNaN(amount) && amount > 0) {
+                  mappedData.push({
+                    projectName: currentProject!,
+                    designation,
+                    month,
+                    amount
+                  });
+                  console.log(`Ajouté: ${currentProject} - ${designation} - ${month}: ${amount}`);
+                }
               }
             });
           }
@@ -142,15 +146,19 @@ export function ExcelImport() {
           const designation = secondColumnValue;
           
           monthColumns.forEach(({ key, month }) => {
-            const amount = parseFloat(row[key] || "0");
-            if (amount > 0) {
-              mappedData.push({
-                projectName: currentProject!,
-                designation,
-                month,
-                amount
-              });
-              console.log(`Ajouté: ${currentProject} - ${designation} - ${month}: ${amount}`);
+            const cellValue = row[key];
+            if (cellValue !== undefined && cellValue !== null && cellValue !== "" && cellValue !== 0) {
+              // Convertir en nombre avec précision maximale
+              const amount = Number(cellValue);
+              if (!isNaN(amount) && amount > 0) {
+                mappedData.push({
+                  projectName: currentProject!,
+                  designation,
+                  month,
+                  amount
+                });
+                console.log(`Ajouté: ${currentProject} - ${designation} - ${month}: ${amount}`);
+              }
             }
           });
         }

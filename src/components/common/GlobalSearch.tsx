@@ -136,11 +136,11 @@ export function GlobalSearch() {
                       <span className="font-medium">
                         {expense.description || expense.projects?.name || "Dépense"}
                       </span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{Number(expense.amount).toLocaleString("fr-FR")} €</span>
-                        <span>•</span>
-                        <span>{expense.expense_types?.name}</span>
-                      </div>
+                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                         <span>{Number(expense.amount).toLocaleString("fr-FR")} MAD</span>
+                         <span>•</span>
+                         <span>{expense.expense_types?.name}</span>
+                       </div>
                     </div>
                   </CommandItem>
                 ))}

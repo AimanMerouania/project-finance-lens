@@ -5,7 +5,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 
 const chartConfig = {
   amount: {
-    label: "Montant (€)",
+    label: "Montant (MAD)",
     color: "hsl(var(--chart-1))",
   },
 };
@@ -65,7 +65,7 @@ export function ExpenseChart() {
           />
           <YAxis 
             tick={{ fontSize: 12 }}
-            tickFormatter={(value) => `${(value / 1000).toFixed(0)}k€`}
+            tickFormatter={(value) => `${(value / 1000).toFixed(0)}k MAD`}
           />
           <ChartTooltip 
             content={<ChartTooltipContent />}
@@ -73,7 +73,7 @@ export function ExpenseChart() {
               const [year, month] = value.split('-');
               return `${month}/${year}`;
             }}
-            formatter={(value) => [`${Number(value).toLocaleString("fr-FR")} €`, "Montant"]}
+            formatter={(value) => [`${Number(value).toLocaleString("fr-FR")} MAD`, "Montant"]}
           />
           <Line 
             type="monotone" 

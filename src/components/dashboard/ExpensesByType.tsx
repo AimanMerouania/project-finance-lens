@@ -13,7 +13,7 @@ const COLORS = [
 
 const chartConfig = {
   amount: {
-    label: "Montant (€)",
+    label: "Montant (MAD)",
   },
 };
 
@@ -74,7 +74,7 @@ export function ExpensesByType() {
           </Pie>
           <ChartTooltip 
             content={<ChartTooltipContent />}
-            formatter={(value) => [`${Number(value).toLocaleString("fr-FR")} €`, "Montant"]}
+            formatter={(value) => [`${Number(value).toLocaleString("fr-FR")} MAD`, "Montant"]}
           />
         </PieChart>
       </ResponsiveContainer>

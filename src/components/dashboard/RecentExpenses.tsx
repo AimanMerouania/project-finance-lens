@@ -60,7 +60,7 @@ export function RecentExpenses() {
             </div>
           </div>
           <div className="text-sm font-medium text-foreground">
-            {parseFloat(expense.amount.toString()).toLocaleString("fr-FR")} €
+            {parseFloat(expense.amount.toString()).toLocaleString("fr-FR")} MAD
           </div>
         </div>
       ))}

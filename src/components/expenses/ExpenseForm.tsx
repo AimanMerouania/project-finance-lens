@@ -218,7 +218,7 @@ export function ExpenseForm({ onSuccess }: ExpenseFormProps) {
             name="amount"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Montant (€)</FormLabel>
+                <FormLabel>Montant (MAD)</FormLabel>
                 <FormControl>
                   <Input 
                     type="number" 

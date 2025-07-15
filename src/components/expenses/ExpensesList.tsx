@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, Search, Filter } from "lucide-react";
+import { Edit, Trash2, Search, Filter, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { ExpenseDetails } from "./ExpenseDetails";
+import { ExpenseEditForm } from "./ExpenseEditForm";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +31,8 @@ export function ExpensesList() {
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [viewingExpense, setViewingExpense] = useState<string | null>(null);
+  const [editingExpense, setEditingExpense] = useState<any | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -110,10 +114,15 @@ export function ExpensesList() {
     if (!expenses) return [];
     
     return expenses.filter((expense) => {
+      const searchTerm = debouncedSearchTerm.toLowerCase();
       const matchesSearch = !debouncedSearchTerm || 
-        expense.projects?.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        expense.suppliers?.name?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        expense.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
+        expense.projects?.name.toLowerCase().includes(searchTerm) ||
+        expense.expense_types?.name.toLowerCase().includes(searchTerm) ||
+        expense.suppliers?.name?.toLowerCase().includes(searchTerm) ||
+        expense.description?.toLowerCase().includes(searchTerm) ||
+        expense.amount.toString().includes(searchTerm) ||
+        expense.invoice_reference?.toLowerCase().includes(searchTerm) ||
+        expense.category?.toLowerCase().includes(searchTerm);
       
       const matchesProject = selectedProject === "all" || expense.project_id === selectedProject;
       const matchesType = selectedType === "all" || expense.expense_type_id === selectedType;
@@ -121,6 +130,25 @@ export function ExpensesList() {
       return matchesSearch && matchesProject && matchesType;
     });
   }, [expenses, debouncedSearchTerm, selectedProject, selectedType]);
+
+  if (viewingExpense) {
+    return (
+      <ExpenseDetails 
+        expenseId={viewingExpense} 
+        onBack={() => setViewingExpense(null)} 
+      />
+    );
+  }
+
+  if (editingExpense) {
+    return (
+      <ExpenseEditForm 
+        expense={editingExpense}
+        onCancel={() => setEditingExpense(null)}
+        onSuccess={() => setEditingExpense(null)}
+      />
+    );
+  }
 
   if (isLoading) {
     return (
@@ -226,11 +254,22 @@ export function ExpensesList() {
                       {expense.description || "-"}
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      {parseFloat(expense.amount.toString()).toLocaleString("fr-FR")} €
+                      {parseFloat(expense.amount.toString()).toLocaleString("fr-FR")} MAD
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setViewingExpense(expense.id)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setEditingExpense(expense)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                         <AlertDialog>
