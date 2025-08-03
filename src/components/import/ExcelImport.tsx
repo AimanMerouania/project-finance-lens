@@ -39,15 +39,14 @@ export function ExcelImport() {
     setImportResults(null);
 
     try {
-      // Lire le fichier Excel
       console.log("Lecture du fichier Excel...");
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
 
-      // Convertir la feuille en JSON, en s'assurant de ne pas sauter les lignes vides
-      // et en gardant les en-têtes bruts pour une meilleure détection
+      // Lire toutes les données sans interpréter la première ligne comme en-tête
+      // Cela nous donne un tableau de tableaux où chaque sous-tableau est une ligne
       const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
 
       console.log("Données brutes du fichier Excel (header:1, raw:true):", jsonData);
@@ -64,18 +63,24 @@ export function ExcelImport() {
       let monthColumnKeys: { key: string; month: string }[] = [];
 
       // Trouver la ligne d'en-tête basée sur la présence de 'Projet', 'Designation' et des mois
+      // On va chercher spécifiquement la ligne qui contient 'Projet' et 'Designation' et au moins un mois
       for (let i = 0; i < jsonData.length; i++) {
         const row = jsonData[i] as string[];
         if (Array.isArray(row) && row.length > 0) {
-          const lowerCaseRow = row.map(cell => String(cell).toLowerCase());
-          if (lowerCaseRow.includes("projet") && lowerCaseRow.includes("designation")) {
+          const lowerCaseRow = row.map(cell => String(cell || '').toLowerCase()); // Gérer les cellules vides
+          
+          // Vérifier si 'Projet' et 'Designation' sont présents
+          const hasProject = lowerCaseRow.includes("projet");
+          const hasDesignation = lowerCaseRow.includes("designation");
+
+          if (hasProject && hasDesignation) {
             // Vérifier si au moins un mois est présent
             const hasMonth = monthNames.some(month => lowerCaseRow.includes(month.toLowerCase()));
             if (hasMonth) {
               headerRowIndex = i;
-              // Construire les clés de colonne pour les mois
+              // Construire les clés de colonne pour les mois en utilisant les en-têtes réels de la ligne trouvée
               row.forEach((cell, colIndex) => {
-                const cellString = String(cell);
+                const cellString = String(cell || ''); // Gérer les cellules vides
                 const foundMonth = monthNames.find(month => cellString.toLowerCase() === month.toLowerCase());
                 if (foundMonth) {
                   monthColumnKeys.push({ key: cellString, month: foundMonth });
@@ -106,7 +111,7 @@ export function ExcelImport() {
         // Mapper les valeurs de la ligne aux noms d'en-tête
         const rowData: { [key: string]: any } = {};
         actualHeaderRow.forEach((header, index) => {
-          rowData[String(header)] = row[index];
+          rowData[String(header || '')] = row[index]; // Gérer les en-têtes vides
         });
 
         const projectCell = String(rowData["Projet"] || "").trim();
@@ -158,7 +163,6 @@ export function ExcelImport() {
         return;
       }
 
-      // Traiter l'import
       console.log("Début du processus d'import vers Supabase...");
       const results = await processImport(mappedData);
       setImportResults(results);
