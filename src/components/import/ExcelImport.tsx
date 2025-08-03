@@ -45,122 +45,104 @@ export function ExcelImport() {
       const workbook = XLSX.read(data);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-      console.log("Données brutes du fichier Excel:", jsonData);
+      // Convertir la feuille en JSON, en s'assurant de ne pas sauter les lignes vides
+      // et en gardant les en-têtes bruts pour une meilleure détection
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
+
+      console.log("Données brutes du fichier Excel (header:1, raw:true):", jsonData);
       setProgress(25);
 
-      // Transformer les données du format pivot vers un format linéaire
       const mappedData: ImportData[] = [];
-      const expenseTypes = ['FOURNISSEUR', 'NDF', 'SOUS TRAITANT', 'ACHAT NDF', 'PRODUCTION INTERNE'];
-      
-      // Find header row with months
+      const expenseTypes = ["FOURNISSEUR", "NDF", "SOUS TRAITANT", "ACHAT NDF", "PRODUCTION INTERNE"];
+      const monthNames = [
+        "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+        "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+      ];
+
       let headerRowIndex = -1;
-      let monthColumns: { key: string; month: string }[] = [];
-      
-      for (let i = 0; i < Math.min(10, jsonData.length); i++) {
-        const row = jsonData[i];
-        if (row && typeof row === 'object') {
-          const values = Object.values(row).filter(val => val && typeof val === 'string');
-          const months = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin'];
-          
-          if (values.some(val => months.some(month => val.toString().toLowerCase().includes(month)))) {
-            headerRowIndex = i;
-            
-            // Extract month columns
-            Object.entries(row).forEach(([key, value]) => {
-              if (value && typeof value === 'string') {
-                const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-                const foundMonth = monthNames.find(month => value.toLowerCase().includes(month.toLowerCase()));
+      let monthColumnKeys: { key: string; month: string }[] = [];
+
+      // Trouver la ligne d'en-tête basée sur la présence de 'Projet', 'Designation' et des mois
+      for (let i = 0; i < jsonData.length; i++) {
+        const row = jsonData[i] as string[];
+        if (Array.isArray(row) && row.length > 0) {
+          const lowerCaseRow = row.map(cell => String(cell).toLowerCase());
+          if (lowerCaseRow.includes("projet") && lowerCaseRow.includes("designation")) {
+            // Vérifier si au moins un mois est présent
+            const hasMonth = monthNames.some(month => lowerCaseRow.includes(month.toLowerCase()));
+            if (hasMonth) {
+              headerRowIndex = i;
+              // Construire les clés de colonne pour les mois
+              row.forEach((cell, colIndex) => {
+                const cellString = String(cell);
+                const foundMonth = monthNames.find(month => cellString.toLowerCase() === month.toLowerCase());
                 if (foundMonth) {
-                  monthColumns.push({ key, month: foundMonth });
+                  monthColumnKeys.push({ key: cellString, month: foundMonth });
                 }
-              }
-            });
-            break;
+              });
+              break;
+            }
           }
         }
       }
 
-      if (headerRowIndex === -1 || monthColumns.length === 0) {
-        console.log("Aucun en-tête de mois trouvé, essai avec structure basique");
-        // Fallback to basic month column names
-        monthColumns = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"]
-          .map(month => ({ key: month, month }));
+      if (headerRowIndex === -1 || monthColumnKeys.length === 0) {
+        throw new Error("Impossible de trouver la ligne d'en-tête ou les colonnes de mois dans le fichier Excel. Assurez-vous que les en-têtes 'Projet', 'Designation' et les noms de mois sont présents.");
       }
 
-      console.log("Colonnes des mois trouvées:", monthColumns);
-      
-      // Process data starting after header
+      console.log("Ligne d'en-tête détectée à l'index:", headerRowIndex);
+      console.log("Colonnes des mois détectées:", monthColumnKeys);
+
+      const actualHeaderRow = jsonData[headerRowIndex] as string[];
+      const dataRows = jsonData.slice(headerRowIndex + 1);
+
       let currentProject: string | null = null;
-      const startIndex = headerRowIndex >= 0 ? headerRowIndex + 1 : 0;
-      
-      for (let i = startIndex; i < jsonData.length; i++) {
-        const row = jsonData[i];
-        console.log(`Traitement ligne ${i + 1}:`, row);
-        
-        if (!row || typeof row !== 'object') continue;
-        
-        // Get first two column values (project and designation)
-        const columns = Object.keys(row);
-        if (columns.length < 2) continue;
-        
-        const firstColumnValue = row[columns[0]];
-        const secondColumnValue = row[columns[1]];
-        
-        console.log(`Première colonne: "${firstColumnValue}", Deuxième colonne: "${secondColumnValue}"`);
-        
-        // Check if this is a project line (first column has value, not an expense type)
-        if (firstColumnValue && 
-            typeof firstColumnValue === 'string' && 
-            firstColumnValue.trim() !== '' &&
-            !expenseTypes.includes(firstColumnValue.trim())) {
-          
-          currentProject = firstColumnValue.trim();
-          console.log("Nouveau projet détecté:", currentProject);
-          
-          // If the second column also has an expense type, process this line
-          if (secondColumnValue && expenseTypes.includes(secondColumnValue)) {
-            const designation = secondColumnValue;
-            
-            monthColumns.forEach(({ key, month }) => {
-              const cellValue = row[key];
-              if (cellValue !== undefined && cellValue !== null && cellValue !== "" && cellValue !== 0) {
-                // Convertir en nombre avec précision maximale
+
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i] as any[]; // Utiliser any[] car les types peuvent varier
+        console.log(`Traitement ligne de données ${i + 1}:`, row);
+
+        // Mapper les valeurs de la ligne aux noms d'en-tête
+        const rowData: { [key: string]: any } = {};
+        actualHeaderRow.forEach((header, index) => {
+          rowData[String(header)] = row[index];
+        });
+
+        const projectCell = String(rowData["Projet"] || "").trim();
+        const designationCell = String(rowData["Designation"] || "").trim();
+
+        // Mettre à jour le projet courant si la cellule 'Projet' n'est pas vide
+        if (projectCell !== "") {
+          currentProject = projectCell;
+        }
+
+        // Si un projet courant est défini et une désignation est présente
+        if (currentProject && designationCell !== "") {
+          // Vérifier si la désignation est un type de dépense valide
+          if (expenseTypes.includes(designationCell.toUpperCase())) {
+            monthColumnKeys.forEach(({ key: monthHeader, month }) => {
+              const cellValue = rowData[monthHeader];
+              if (cellValue !== undefined && cellValue !== null && cellValue !== "") {
                 const amount = Number(cellValue);
                 if (!isNaN(amount) && amount > 0) {
                   mappedData.push({
                     projectName: currentProject!,
-                    designation,
+                    designation: designationCell,
                     month,
                     amount
                   });
-                  console.log(`Ajouté: ${currentProject} - ${designation} - ${month}: ${amount}`);
+                  console.log(`Ajouté: ${currentProject} - ${designationCell} - ${month}: ${amount}`);
                 }
               }
             });
+          } else {
+            console.warn(`Ligne ${i + 1}: Désignation '${designationCell}' non reconnue comme type de dépense. Ignorée.`);
           }
-        }
-        // Check if this is an expense type line (second column contains expense type)
-        else if (currentProject && secondColumnValue && expenseTypes.includes(secondColumnValue)) {
-          const designation = secondColumnValue;
-          
-          monthColumns.forEach(({ key, month }) => {
-            const cellValue = row[key];
-            if (cellValue !== undefined && cellValue !== null && cellValue !== "" && cellValue !== 0) {
-              // Convertir en nombre avec précision maximale
-              const amount = Number(cellValue);
-              if (!isNaN(amount) && amount > 0) {
-                mappedData.push({
-                  projectName: currentProject!,
-                  designation,
-                  month,
-                  amount
-                });
-                console.log(`Ajouté: ${currentProject} - ${designation} - ${month}: ${amount}`);
-              }
-            }
-          });
+        } else if (projectCell === "" && designationCell === "") {
+          console.log(`Ligne ${i + 1}: Ligne vide ou non pertinente. Ignorée.`);
+        } else if (!currentProject) {
+          console.warn(`Ligne ${i + 1}: Projet non défini pour la désignation '${designationCell}'. Ignorée.`);
         }
       }
 
@@ -170,7 +152,7 @@ export function ExcelImport() {
       if (mappedData.length === 0) {
         toast({
           title: "Aucune donnée trouvée",
-          description: "Aucun montant valide trouvé dans le fichier Excel. Vérifiez le format.",
+          description: "Aucun montant valide trouvé dans le fichier Excel. Vérifiez le format et les types de dépenses.",
           variant: "destructive",
         });
         return;
