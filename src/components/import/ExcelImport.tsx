@@ -65,25 +65,43 @@ export function ExcelImport() {
       // Trouver la ligne d'en-tête basée sur la présence de 'Projet', 'Designation' et des mois
       // On va chercher spécifiquement la ligne qui contient 'Projet' et 'Designation' et au moins un mois
       for (let i = 0; i < jsonData.length; i++) {
-        const row = jsonData[i] as string[];
+        const row = jsonData[i] as any[];
         if (Array.isArray(row) && row.length > 0) {
-          const lowerCaseRow = row.map(cell => String(cell || '').toLowerCase()); // Gérer les cellules vides
+          // Convertir chaque cellule en string et nettoyer les espaces/accents
+          const cleanRow = row.map(cell => {
+            if (cell === null || cell === undefined) return '';
+            return String(cell).trim().toLowerCase()
+              .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // Enlever les accents
+          });
           
-          // Vérifier si 'Projet' et 'Designation' sont présents
-          const hasProject = lowerCaseRow.includes("projet");
-          const hasDesignation = lowerCaseRow.includes("designation");
+          console.log(`Ligne ${i + 1}:`, cleanRow);
+          
+          // Vérifier si 'Projet' et 'Designation' sont présents (sans accent)
+          const hasProject = cleanRow.includes("projet");
+          const hasDesignation = cleanRow.includes("designation") || cleanRow.includes("desgination");
 
           if (hasProject && hasDesignation) {
             // Vérifier si au moins un mois est présent
-            const hasMonth = monthNames.some(month => lowerCaseRow.includes(month.toLowerCase()));
-            if (hasMonth) {
+            const monthsInRow = monthNames.filter(month => 
+              cleanRow.includes(month.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+            );
+            
+            console.log(`Ligne ${i + 1} - Mois trouvés:`, monthsInRow);
+            
+            if (monthsInRow.length > 0) {
               headerRowIndex = i;
               // Construire les clés de colonne pour les mois en utilisant les en-têtes réels de la ligne trouvée
               row.forEach((cell, colIndex) => {
-                const cellString = String(cell || ''); // Gérer les cellules vides
-                const foundMonth = monthNames.find(month => cellString.toLowerCase() === month.toLowerCase());
-                if (foundMonth) {
-                  monthColumnKeys.push({ key: cellString, month: foundMonth });
+                const cellString = String(cell || '').trim();
+                if (cellString) {
+                  const foundMonth = monthNames.find(month => 
+                    cellString.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
+                    month.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                  );
+                  if (foundMonth) {
+                    monthColumnKeys.push({ key: cellString, month: foundMonth });
+                    console.log(`Mois détecté: ${cellString} -> ${foundMonth}`);
+                  }
                 }
               });
               break;
