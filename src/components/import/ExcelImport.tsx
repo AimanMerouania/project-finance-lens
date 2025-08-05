@@ -76,9 +76,9 @@ export function ExcelImport() {
           
           console.log(`Ligne ${i + 1}:`, cleanRow);
           
-          // Vérifier si 'Projet' et 'Designation' sont présents (sans accent)
+          // Vérifier si 'Projet' et 'Designation' sont présents (sans accent et avec variantes)
           const hasProject = cleanRow.includes("projet");
-          const hasDesignation = cleanRow.includes("designation") || cleanRow.includes("desgination");
+          const hasDesignation = cleanRow.includes("designation") || cleanRow.includes("desgnation");
 
           if (hasProject && hasDesignation) {
             // Vérifier si au moins un mois est présent
@@ -132,8 +132,8 @@ export function ExcelImport() {
           rowData[String(header || '')] = row[index]; // Gérer les en-têtes vides
         });
 
-        const projectCell = String(rowData["Projet"] || "").trim();
-        const designationCell = String(rowData["Designation"] || "").trim();
+        const projectCell = String(rowData["projet"] || rowData["Projet"] || "").trim();
+        const designationCell = String(rowData["desgnation"] || rowData["Desgnation"] || rowData["designation"] || rowData["Designation"] || "").trim();
 
         // Mettre à jour le projet courant si la cellule 'Projet' n'est pas vide
         if (projectCell !== "") {
