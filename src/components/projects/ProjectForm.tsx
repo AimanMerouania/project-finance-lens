@@ -143,7 +143,7 @@ export function ProjectForm({ onSuccess }: ProjectFormProps) {
             name="budget"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Budget (€)</FormLabel>
+                <FormLabel>Budget (MAD)</FormLabel>
                 <FormControl>
                   <Input 
                     type="number" 
