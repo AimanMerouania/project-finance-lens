@@ -98,7 +98,7 @@ export function ExpenseForm({ onSuccess }: ExpenseFormProps) {
       const expenseData = {
         project_id: data.project_id,
         expense_type_id: data.expense_type_id,
-        supplier_id: data.supplier_id || null,
+        supplier_id: data.supplier_id === "none" ? null : data.supplier_id || null,
         amount: parseFloat(data.amount),
         expense_date: format(data.expense_date, "yyyy-MM-dd"),
         description: data.description || null,
@@ -200,7 +200,7 @@ export function ExpenseForm({ onSuccess }: ExpenseFormProps) {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">Aucun fournisseur</SelectItem>
+                    <SelectItem value="none">Aucun fournisseur</SelectItem>
                     {suppliers?.map((supplier) => (
                       <SelectItem key={supplier.id} value={supplier.id}>
                         {supplier.name}

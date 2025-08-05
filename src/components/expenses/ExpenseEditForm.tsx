@@ -49,7 +49,7 @@ export function ExpenseEditForm({ expense, onCancel, onSuccess }: ExpenseEditFor
     defaultValues: {
       project_id: expense.project_id,
       expense_type_id: expense.expense_type_id,
-      supplier_id: expense.supplier_id || "",
+      supplier_id: expense.supplier_id || "none",
       amount: expense.amount.toString(),
       expense_date: new Date(expense.expense_date),
       description: expense.description || "",
@@ -103,7 +103,7 @@ export function ExpenseEditForm({ expense, onCancel, onSuccess }: ExpenseEditFor
       const expenseData = {
         project_id: data.project_id,
         expense_type_id: data.expense_type_id,
-        supplier_id: data.supplier_id || null,
+        supplier_id: data.supplier_id === "none" ? null : data.supplier_id || null,
         amount: parseFloat(data.amount),
         expense_date: format(data.expense_date, "yyyy-MM-dd"),
         description: data.description || null,
@@ -222,7 +222,7 @@ export function ExpenseEditForm({ expense, onCancel, onSuccess }: ExpenseEditFor
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Aucun fournisseur</SelectItem>
+                        <SelectItem value="none">Aucun fournisseur</SelectItem>
                         {suppliers?.map((supplier) => (
                           <SelectItem key={supplier.id} value={supplier.id}>
                             {supplier.name}
