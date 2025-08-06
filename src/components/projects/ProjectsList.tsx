@@ -19,9 +19,21 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ProjectDetails } from "./ProjectDetails";
+import { ProjectEditForm } from "./ProjectEditForm";
 
 export function ProjectsList() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -146,7 +158,7 @@ export function ProjectsList() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total dépenses:</span>
                   <span className="font-medium">
-                    {totalExpenses.toLocaleString("fr-FR")} €
+                    {totalExpenses.toLocaleString("fr-FR")} MAD
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
@@ -160,14 +172,44 @@ export function ProjectsList() {
               </div>
               
               <div className="flex space-x-2 mt-4">
-                <Button variant="outline" size="sm">
-                  <Eye className="h-4 w-4 mr-1" />
-                  Voir
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Edit className="h-4 w-4 mr-1" />
-                  Modifier
-                </Button>
+                <Dialog open={selectedProjectId === project.id} onOpenChange={(open) => !open && setSelectedProjectId(null)}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" onClick={() => setSelectedProjectId(project.id)}>
+                      <Eye className="h-4 w-4 mr-1" />
+                      Voir
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Détails du projet</DialogTitle>
+                      <DialogDescription>
+                        Informations complètes du projet
+                      </DialogDescription>
+                    </DialogHeader>
+                    <ProjectDetails projectId={project.id} />
+                  </DialogContent>
+                </Dialog>
+                
+                <Dialog open={editingProjectId === project.id} onOpenChange={(open) => !open && setEditingProjectId(null)}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" onClick={() => setEditingProjectId(project.id)}>
+                      <Edit className="h-4 w-4 mr-1" />
+                      Modifier
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Modifier le projet</DialogTitle>
+                      <DialogDescription>
+                        Modifiez les informations du projet
+                      </DialogDescription>
+                    </DialogHeader>
+                    <ProjectEditForm 
+                      projectId={project.id} 
+                      onSuccess={() => setEditingProjectId(null)} 
+                    />
+                  </DialogContent>
+                </Dialog>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button 
