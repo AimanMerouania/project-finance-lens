@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { PeriodType } from "./PeriodFilter";
 
 const chartConfig = {
   amount: {
@@ -10,15 +11,45 @@ const chartConfig = {
   },
 };
 
-export function ExpenseChart() {
+interface ExpenseChartProps {
+  period: PeriodType;
+}
+
+export function ExpenseChart({ period }: ExpenseChartProps) {
   const { data: chartData, isLoading } = useQuery({
-    queryKey: ["expense-chart"],
+    queryKey: ["expense-chart", period],
     queryFn: async () => {
-      // Only fetch necessary data - removed projects join as it's not used
-      const { data, error } = await supabase
+      let dateFilter = "";
+      const now = new Date();
+
+      switch (period) {
+        case "month":
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          dateFilter = `expense_date.gte.${startOfMonth.toISOString().split('T')[0]}`;
+          break;
+        case "quarter":
+          const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+          dateFilter = `expense_date.gte.${quarterStart.toISOString().split('T')[0]}`;
+          break;
+        case "year":
+          const yearStart = new Date(now.getFullYear(), 0, 1);
+          dateFilter = `expense_date.gte.${yearStart.toISOString().split('T')[0]}`;
+          break;
+        default:
+          dateFilter = "";
+      }
+
+      const query = supabase
         .from("expenses")
         .select("amount, expense_date")
         .order("expense_date");
+
+      if (dateFilter) {
+        const [field, operator, value] = dateFilter.split('.');
+        query.gte(field, value);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 

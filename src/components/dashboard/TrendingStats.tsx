@@ -3,62 +3,108 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { TrendingUp, TrendingDown, Minus, FolderOpen, Receipt, Euro, BarChart3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { PeriodType } from "./PeriodFilter";
 
-export function TrendingStats() {
+interface TrendingStatsProps {
+  period: PeriodType;
+}
+
+export function TrendingStats({ period }: TrendingStatsProps) {
   const { data: stats, isLoading } = useQuery({
-    queryKey: ["trending-stats"],
+    queryKey: ["trending-stats", period],
     queryFn: async () => {
+      let dateFilter = "";
       const now = new Date();
-      
-      // Current month
-      const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      
-      // Previous month
-      const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
-      const [currentMonthResult, previousMonthResult, projectsResult] = await Promise.all([
-        supabase
-          .from("expenses")
-          .select("amount")
-          .gte("expense_date", currentMonthStart.toISOString().split('T')[0])
-          .lte("expense_date", currentMonthEnd.toISOString().split('T')[0]),
-        supabase
-          .from("expenses")
-          .select("amount")
-          .gte("expense_date", previousMonthStart.toISOString().split('T')[0])
-          .lte("expense_date", previousMonthEnd.toISOString().split('T')[0]),
+      switch (period) {
+        case "month":
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+          dateFilter = `expense_date.gte.${startOfMonth.toISOString().split('T')[0]}`;
+          break;
+        case "quarter":
+          const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+          dateFilter = `expense_date.gte.${quarterStart.toISOString().split('T')[0]}`;
+          break;
+        case "year":
+          const yearStart = new Date(now.getFullYear(), 0, 1);
+          dateFilter = `expense_date.gte.${yearStart.toISOString().split('T')[0]}`;
+          break;
+        default:
+          dateFilter = "";
+      }
+      // Current period query
+      const currentQuery = supabase
+        .from("expenses")
+        .select("amount");
+
+      if (dateFilter) {
+        const [field, operator, value] = dateFilter.split('.');
+        currentQuery.gte(field, value);
+      }
+
+      // Previous period for comparison
+      let previousDateFilter = "";
+      switch (period) {
+        case "month":
+          const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+          const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+          previousDateFilter = `expense_date.gte.${prevMonthStart.toISOString().split('T')[0]}&expense_date.lte.${prevMonthEnd.toISOString().split('T')[0]}`;
+          break;
+        case "quarter":
+          const prevQuarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3 - 3, 1);
+          const prevQuarterEnd = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 0);
+          previousDateFilter = `expense_date.gte.${prevQuarterStart.toISOString().split('T')[0]}&expense_date.lte.${prevQuarterEnd.toISOString().split('T')[0]}`;
+          break;
+        case "year":
+          const prevYearStart = new Date(now.getFullYear() - 1, 0, 1);
+          const prevYearEnd = new Date(now.getFullYear() - 1, 11, 31);
+          previousDateFilter = `expense_date.gte.${prevYearStart.toISOString().split('T')[0]}&expense_date.lte.${prevYearEnd.toISOString().split('T')[0]}`;
+          break;
+        default:
+          previousDateFilter = "";
+      }
+
+      const previousQuery = supabase
+        .from("expenses")
+        .select("amount");
+
+      if (previousDateFilter && period !== "all") {
+        const filters = previousDateFilter.split('&');
+        filters.forEach(filter => {
+          const [field, operator, value] = filter.split('.');
+          if (operator === 'gte') previousQuery.gte(field, value);
+          if (operator === 'lte') previousQuery.lte(field, value);
+        });
+      }
+
+      const [currentResult, previousResult, projectsResult] = await Promise.all([
+        currentQuery,
+        period !== "all" ? previousQuery : Promise.resolve({ data: [] }),
         supabase.from("projects").select("*", { count: "exact", head: true }),
       ]);
 
-      const currentMonthTotal = currentMonthResult.data?.reduce(
-        (sum, expense) => sum + Number(expense.amount), 0
-      ) || 0;
-      
-      const previousMonthTotal = previousMonthResult.data?.reduce(
-        (sum, expense) => sum + Number(expense.amount), 0
-      ) || 0;
+      const currentTotal = currentResult.data?.map(e => Number(e.amount)).reduce((a, b) => a + b, 0) || 0;
+      const previousTotal = previousResult.data?.map(e => Number(e.amount)).reduce((a, b) => a + b, 0) || 0;
 
-      const currentMonthCount = currentMonthResult.data?.length || 0;
-      const previousMonthCount = previousMonthResult.data?.length || 0;
+      const currentCount = currentResult.data?.length || 0;
+      const previousCount = previousResult.data?.length || 0;
 
       // Calculate trends
-      const amountTrend = previousMonthTotal > 0 
-        ? ((currentMonthTotal - previousMonthTotal) / previousMonthTotal) * 100 
+      const amountTrend = previousTotal > 0 && period !== "all"
+        ? ((currentTotal - previousTotal) / previousTotal) * 100 
         : 0;
       
-      const countTrend = previousMonthCount > 0 
-        ? ((currentMonthCount - previousMonthCount) / previousMonthCount) * 100 
+      const countTrend = previousCount > 0 && period !== "all"
+        ? ((currentCount - previousCount) / previousCount) * 100 
         : 0;
 
       return {
         projectsCount: projectsResult.count || 0,
-        currentMonthTotal,
-        currentMonthCount,
+        currentTotal,
+        currentCount,
         amountTrend,
         countTrend,
-        avgPerTransaction: currentMonthCount > 0 ? currentMonthTotal / currentMonthCount : 0,
+        avgPerTransaction: currentCount > 0 ? currentTotal / currentCount : 0,
       };
     },
     staleTime: 5 * 60 * 1000,
@@ -91,18 +137,18 @@ export function TrendingStats() {
       trend: null,
     },
     {
-      title: "Dépenses ce mois",
-      value: `${(stats?.currentMonthTotal || 0).toLocaleString("fr-FR")} MAD`,
+      title: `Dépenses ${period === "month" ? "ce mois" : period === "quarter" ? "ce trimestre" : period === "year" ? "cette année" : "totales"}`,
+      value: `${(stats?.currentTotal || 0).toLocaleString("fr-FR")} MAD`,
       icon: Euro,
-      description: "total mensuel",
-      trend: stats?.amountTrend || 0,
+      description: "total période",
+      trend: period !== "all" ? (stats?.amountTrend || 0) : null,
     },
     {
-      title: "Transactions ce mois",
-      value: stats?.currentMonthCount || 0,
+      title: `Transactions ${period === "month" ? "ce mois" : period === "quarter" ? "ce trimestre" : period === "year" ? "cette année" : "totales"}`,
+      value: stats?.currentCount || 0,
       icon: Receipt,
       description: "nombre de dépenses",
-      trend: stats?.countTrend || 0,
+      trend: period !== "all" ? (stats?.countTrend || 0) : null,
     },
     {
       title: "Moyenne par transaction",

@@ -33,7 +33,7 @@ const Dashboard = () => {
 
       {/* Stats with trends */}
       <div className="animate-scale-in">
-        <TrendingStats />
+        <TrendingStats period={selectedPeriod} />
       </div>
 
       {/* Main Content Tabs */}
@@ -71,7 +71,7 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <LazyWrapper>
-                  <ExpenseChart />
+                  <ExpenseChart period={selectedPeriod} />
                 </LazyWrapper>
               </CardContent>
             </Card>
@@ -88,7 +88,7 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <LazyWrapper>
-                  <ExpensesByType />
+                  <ExpensesByType period={selectedPeriod} />
                 </LazyWrapper>
               </CardContent>
             </Card>
@@ -161,7 +161,7 @@ const Dashboard = () => {
               </CardHeader>
               <CardContent>
                 <LazyWrapper>
-                  <ExpensesByType />
+                  <ExpensesByType period={selectedPeriod} />
                 </LazyWrapper>
               </CardContent>
             </Card>
