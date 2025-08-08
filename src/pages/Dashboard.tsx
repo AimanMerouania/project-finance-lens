@@ -5,13 +5,14 @@ import { TrendingStats } from "@/components/dashboard/TrendingStats";
 import { PeriodFilter, PeriodType } from "@/components/dashboard/PeriodFilter";
 import { TopProjects } from "@/components/dashboard/TopProjects";
 import { LazyWrapper } from "@/components/common/LazyWrapper";
-import { BarChart3, PieChart, LineChart, Trophy } from "lucide-react";
+import { BarChart3, PieChart, LineChart, Trophy, TrendingUp } from "lucide-react";
 
 // Lazy load heavy chart components
 const ExpenseChart = lazy(() => import("@/components/dashboard/ExpenseChart").then(m => ({ default: m.ExpenseChart })));
 const ExpensesByType = lazy(() => import("@/components/dashboard/ExpensesByType").then(m => ({ default: m.ExpensesByType })));
 const RecentExpenses = lazy(() => import("@/components/dashboard/RecentExpenses").then(m => ({ default: m.RecentExpenses })));
 const ProjectComparison = lazy(() => import("@/components/dashboard/ProjectComparison").then(m => ({ default: m.ProjectComparison })));
+const PeriodComparison = lazy(() => import("@/components/dashboard/PeriodComparison").then(m => ({ default: m.PeriodComparison })));
 
 const Dashboard = () => {
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodType>("month");
@@ -38,7 +39,7 @@ const Dashboard = () => {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             Vue d'ensemble
@@ -46,6 +47,10 @@ const Dashboard = () => {
           <TabsTrigger value="analytics" className="flex items-center gap-2">
             <LineChart className="h-4 w-4" />
             Analyses
+          </TabsTrigger>
+          <TabsTrigger value="comparison" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Comparaison
           </TabsTrigger>
           <TabsTrigger value="projects" className="flex items-center gap-2">
             <Trophy className="h-4 w-4" />
@@ -126,6 +131,12 @@ const Dashboard = () => {
               </LazyWrapper>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="comparison" className="space-y-6">
+          <LazyWrapper>
+            <PeriodComparison />
+          </LazyWrapper>
         </TabsContent>
 
         <TabsContent value="projects" className="space-y-6">
