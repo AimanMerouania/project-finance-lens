@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      budget_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          project_id: string
+          threshold_percentage: number | null
+          updated_at: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          project_id: string
+          threshold_percentage?: number | null
+          updated_at?: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          project_id?: string
+          threshold_percentage?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       expense_types: {
         Row: {
           code: string
@@ -42,6 +72,7 @@ export type Database = {
         Row: {
           amount: number
           category: string | null
+          comments: string | null
           created_at: string
           description: string | null
           expense_date: string
@@ -55,6 +86,7 @@ export type Database = {
         Insert: {
           amount: number
           category?: string | null
+          comments?: string | null
           created_at?: string
           description?: string | null
           expense_date: string
@@ -68,6 +100,7 @@ export type Database = {
         Update: {
           amount?: number
           category?: string | null
+          comments?: string | null
           created_at?: string
           description?: string | null
           expense_date?: string
@@ -164,6 +197,42 @@ export type Database = {
           name?: string
           start_date?: string | null
           status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      revenues: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          invoice_reference: string | null
+          payment_status: string | null
+          project_id: string
+          revenue_date: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          invoice_reference?: string | null
+          payment_status?: string | null
+          project_id: string
+          revenue_date: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          invoice_reference?: string | null
+          payment_status?: string | null
+          project_id?: string
+          revenue_date?: string
           updated_at?: string
         }
         Relationships: []
