@@ -6,6 +6,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarIcon, TrendingUp } from "lucide-react";
+import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter } from "date-fns";
+import { fr } from "date-fns/locale";
 
 const chartConfig = {
   currentPeriod: {
@@ -18,116 +20,147 @@ const chartConfig = {
   },
 };
 
-type ComparisonType = "month-prev" | "month-next" | "quarter-prev" | "quarter-next";
+type PeriodType = "month" | "quarter";
 
-interface ComparisonOption {
-  value: ComparisonType;
+interface PeriodOption {
+  value: string;
   label: string;
-  description: string;
 }
 
-const comparisonOptions: ComparisonOption[] = [
-  {
-    value: "month-prev",
-    label: "Mois actuel vs précédent",
-    description: "Comparaison avec le mois précédent"
-  },
-  {
-    value: "month-next",
-    label: "Mois actuel vs suivant",
-    description: "Comparaison avec le mois suivant"
-  },
-  {
-    value: "quarter-prev",
-    label: "Trimestre actuel vs précédent",
-    description: "Comparaison avec le trimestre précédent"
-  },
-  {
-    value: "quarter-next",
-    label: "Trimestre actuel vs suivant",
-    description: "Comparaison avec le trimestre suivant"
-  },
-];
+// Generate month options for the current and previous/next years
+const generateMonthOptions = (): PeriodOption[] => {
+  const options: PeriodOption[] = [];
+  const currentYear = new Date().getFullYear();
+  
+  for (let year = currentYear - 1; year <= currentYear + 1; year++) {
+    for (let month = 0; month < 12; month++) {
+      const date = new Date(year, month, 1);
+      options.push({
+        value: `${year}-${month.toString().padStart(2, '0')}`,
+        label: format(date, "MMMM yyyy", { locale: fr })
+      });
+    }
+  }
+  return options;
+};
+
+// Generate quarter options for the current and previous/next years
+const generateQuarterOptions = (): PeriodOption[] => {
+  const options: PeriodOption[] = [];
+  const currentYear = new Date().getFullYear();
+  
+  for (let year = currentYear - 1; year <= currentYear + 1; year++) {
+    for (let quarter = 0; quarter < 4; quarter++) {
+      options.push({
+        value: `${year}-Q${quarter + 1}`,
+        label: `T${quarter + 1} ${year}`
+      });
+    }
+  }
+  return options;
+};
 
 export function PeriodComparison() {
-  const [comparisonType, setComparisonType] = useState<ComparisonType>("month-prev");
+  const [periodType, setPeriodType] = useState<PeriodType>("month");
+  const [firstPeriod, setFirstPeriod] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${now.getMonth().toString().padStart(2, '0')}`;
+  });
+  const [secondPeriod, setSecondPeriod] = useState(() => {
+    const now = new Date();
+    const prevMonth = now.getMonth() - 1;
+    const year = prevMonth < 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const month = prevMonth < 0 ? 11 : prevMonth;
+    return `${year}-${month.toString().padStart(2, '0')}`;
+  });
+
+  // Update period formats when switching between month and quarter
+  const handlePeriodTypeChange = (newType: PeriodType) => {
+    setPeriodType(newType);
+    const now = new Date();
+    
+    if (newType === "quarter") {
+      const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
+      const prevQuarter = currentQuarter === 1 ? 4 : currentQuarter - 1;
+      const yearForPrev = currentQuarter === 1 ? now.getFullYear() - 1 : now.getFullYear();
+      
+      setFirstPeriod(`${now.getFullYear()}-Q${currentQuarter}`);
+      setSecondPeriod(`${yearForPrev}-Q${prevQuarter}`);
+    } else {
+      setFirstPeriod(`${now.getFullYear()}-${now.getMonth().toString().padStart(2, '0')}`);
+      const prevMonth = now.getMonth() - 1;
+      const year = prevMonth < 0 ? now.getFullYear() - 1 : now.getFullYear();
+      const month = prevMonth < 0 ? 11 : prevMonth;
+      setSecondPeriod(`${year}-${month.toString().padStart(2, '0')}`);
+    }
+  };
 
   const { data: chartData, isLoading } = useQuery({
-    queryKey: ["period-comparison", comparisonType],
+    queryKey: ["period-comparison", periodType, firstPeriod, secondPeriod],
     queryFn: async () => {
-      const now = new Date();
-      let currentStart: Date, currentEnd: Date, compareStart: Date, compareEnd: Date;
+      let firstStart: Date, firstEnd: Date, secondStart: Date, secondEnd: Date;
 
-      switch (comparisonType) {
-        case "month-prev":
-          currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
-          currentEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-          compareStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          compareEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-          break;
-        case "month-next":
-          currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
-          currentEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-          compareStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-          compareEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0);
-          break;
-        case "quarter-prev":
-          const currentQuarter = Math.floor(now.getMonth() / 3);
-          currentStart = new Date(now.getFullYear(), currentQuarter * 3, 1);
-          currentEnd = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0);
-          compareStart = new Date(now.getFullYear(), (currentQuarter - 1) * 3, 1);
-          compareEnd = new Date(now.getFullYear(), currentQuarter * 3, 0);
-          break;
-        case "quarter-next":
-          const currentQ = Math.floor(now.getMonth() / 3);
-          currentStart = new Date(now.getFullYear(), currentQ * 3, 1);
-          currentEnd = new Date(now.getFullYear(), (currentQ + 1) * 3, 0);
-          compareStart = new Date(now.getFullYear(), (currentQ + 1) * 3, 1);
-          compareEnd = new Date(now.getFullYear(), (currentQ + 2) * 3, 0);
-          break;
+      if (periodType === "month") {
+        // Parse month periods (format: YYYY-MM)
+        const [firstYear, firstMonth] = firstPeriod.split('-').map(Number);
+        const [secondYear, secondMonth] = secondPeriod.split('-').map(Number);
+        
+        firstStart = startOfMonth(new Date(firstYear, firstMonth, 1));
+        firstEnd = endOfMonth(new Date(firstYear, firstMonth, 1));
+        secondStart = startOfMonth(new Date(secondYear, secondMonth, 1));
+        secondEnd = endOfMonth(new Date(secondYear, secondMonth, 1));
+      } else {
+        // Parse quarter periods (format: YYYY-QX)
+        const [firstYear, firstQuarter] = firstPeriod.split('-Q').map(Number);
+        const [secondYear, secondQuarter] = secondPeriod.split('-Q').map(Number);
+        
+        firstStart = startOfQuarter(new Date(firstYear, (firstQuarter - 1) * 3, 1));
+        firstEnd = endOfQuarter(new Date(firstYear, (firstQuarter - 1) * 3, 1));
+        secondStart = startOfQuarter(new Date(secondYear, (secondQuarter - 1) * 3, 1));
+        secondEnd = endOfQuarter(new Date(secondYear, (secondQuarter - 1) * 3, 1));
       }
 
-      // Fetch current period data
-      const { data: currentData, error: currentError } = await supabase
+      // Fetch first period data
+      const { data: firstData, error: firstError } = await supabase
         .from("expenses")
         .select("amount, projects(name)")
-        .gte("expense_date", currentStart.toISOString().split('T')[0])
-        .lte("expense_date", currentEnd.toISOString().split('T')[0]);
+        .gte("expense_date", firstStart.toISOString().split('T')[0])
+        .lte("expense_date", firstEnd.toISOString().split('T')[0]);
 
-      if (currentError) throw currentError;
+      if (firstError) throw firstError;
 
-      // Fetch comparison period data
-      const { data: compareData, error: compareError } = await supabase
+      // Fetch second period data
+      const { data: secondData, error: secondError } = await supabase
         .from("expenses")
         .select("amount, projects(name)")
-        .gte("expense_date", compareStart.toISOString().split('T')[0])
-        .lte("expense_date", compareEnd.toISOString().split('T')[0]);
+        .gte("expense_date", secondStart.toISOString().split('T')[0])
+        .lte("expense_date", secondEnd.toISOString().split('T')[0]);
 
-      if (compareError) throw compareError;
+      if (secondError) throw secondError;
 
-      // Process current period data
-      const currentProjectData = currentData.reduce((acc: Record<string, number>, expense) => {
+      // Process first period data
+      const firstProjectData = firstData.reduce((acc: Record<string, number>, expense) => {
         const projectName = expense.projects?.name || "Projet non défini";
         acc[projectName] = (acc[projectName] || 0) + Number(expense.amount);
         return acc;
       }, {});
 
-      // Process comparison period data
-      const compareProjectData = compareData.reduce((acc: Record<string, number>, expense) => {
+      // Process second period data
+      const secondProjectData = secondData.reduce((acc: Record<string, number>, expense) => {
         const projectName = expense.projects?.name || "Projet non défini";
         acc[projectName] = (acc[projectName] || 0) + Number(expense.amount);
         return acc;
       }, {});
 
       // Combine all project names
-      const allProjects = new Set([...Object.keys(currentProjectData), ...Object.keys(compareProjectData)]);
+      const allProjects = new Set([...Object.keys(firstProjectData), ...Object.keys(secondProjectData)]);
 
       // Create chart data
       return Array.from(allProjects)
         .map(projectName => ({
           name: projectName.length > 15 ? projectName.substring(0, 15) + "..." : projectName,
-          currentPeriod: currentProjectData[projectName] || 0,
-          comparePeriod: compareProjectData[projectName] || 0,
+          currentPeriod: firstProjectData[projectName] || 0,
+          comparePeriod: secondProjectData[projectName] || 0,
         }))
         .filter(item => item.currentPeriod > 0 || item.comparePeriod > 0)
         .sort((a, b) => (b.currentPeriod + b.comparePeriod) - (a.currentPeriod + a.comparePeriod))
@@ -136,7 +169,7 @@ export function PeriodComparison() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const selectedOption = comparisonOptions.find(opt => opt.value === comparisonType);
+  const currentOptions = periodType === "month" ? generateMonthOptions() : generateQuarterOptions();
 
   if (isLoading) {
     return (
@@ -148,6 +181,9 @@ export function PeriodComparison() {
   const totalCompare = chartData?.reduce((sum, item) => sum + item.comparePeriod, 0) || 0;
   const percentageChange = totalCompare > 0 ? ((totalCurrent - totalCompare) / totalCompare) * 100 : 0;
 
+  const firstPeriodLabel = currentOptions.find(opt => opt.value === firstPeriod)?.label || firstPeriod;
+  const secondPeriodLabel = currentOptions.find(opt => opt.value === secondPeriod)?.label || secondPeriod;
+
   return (
     <Card>
       <CardHeader>
@@ -158,17 +194,47 @@ export function PeriodComparison() {
               Comparaison temporelle par projet
             </CardTitle>
             <CardDescription>
-              {selectedOption?.description}
+              Comparaison entre {firstPeriodLabel} et {secondPeriodLabel}
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-            <Select value={comparisonType} onValueChange={(value: ComparisonType) => setComparisonType(value)}>
-              <SelectTrigger className="w-[280px]">
+            <Select value={periodType} onValueChange={handlePeriodTypeChange}>
+              <SelectTrigger className="w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {comparisonOptions.map((option) => (
+                <SelectItem value="month">Mois</SelectItem>
+                <SelectItem value="quarter">Trimestre</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block">Première période</label>
+            <Select value={firstPeriod} onValueChange={setFirstPeriod}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {currentOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label className="text-sm font-medium mb-2 block">Seconde période</label>
+            <Select value={secondPeriod} onValueChange={setSecondPeriod}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {currentOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
